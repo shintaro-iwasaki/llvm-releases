@@ -77,7 +77,6 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
-          if-no-files-found: error
           name: build_artifact
           path: ${{ github.sha }}
 
@@ -100,6 +99,5 @@ jobs:
           token: "${{ secrets.GITHUB_TOKEN }}"
           tag: "${{ steps.setup_release.outputs.tag_name }}"
           name: "${{ steps.setup_release.outputs.release_title }}"
-          prerelease: true
           removeArtifacts: true
 
