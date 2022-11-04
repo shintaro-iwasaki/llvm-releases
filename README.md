@@ -11,7 +11,7 @@ First, create a commit that updates LLVM.
 ```sh
 cd <this-repository>
 # 1. Update llvm-project
-git submodule update --init --recursive
+git submodule update --init --depth 1 llvm-project
 pushd llvm-project
 git checkout <new-llvm-commit-id>
 popd ../
@@ -26,3 +26,9 @@ git push
 ```
 
 Then, create a PR to the main branch of this repository. When a PR is merged, created binaries are pushed to the specified repository.
+
+You can test run the build like this 
+
+```sh
+bash build_llvm.bash -v 3.11 -o here -p local -a arm64 -c release -j 4
+```

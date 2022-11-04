@@ -22,6 +22,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         arch: [x86_64, arm64]
         config: [release, assert]
+        py_version: [3.11]
         exclude:
           - os: ubuntu-latest
             arch: arm64
@@ -52,9 +53,9 @@ jobs:
           CPU_ARCH="${{ matrix.arch }}"
 
           if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
-            # internally it uses a docker to run 18.04
-            PLATFORM_NAME="linux-gnu-ubuntu-18.04"
-            BUILD_PLATFORM="docker_ubuntu_18.04"
+            # internally it uses a docker to run 20.04
+            PLATFORM_NAME="linux-gnu-ubuntu-20.04"
+            BUILD_PLATFORM="docker_ubuntu_20.04"
           else
             PLATFORM_NAME="apple-darwin"
             BUILD_PLATFORM="local"
@@ -62,9 +63,9 @@ jobs:
 
           CONFIG_SUFFIX="${{ matrix.config }}"
 
-          OUTPUT="llvm+mlir+python-${LLVM_VER}-${CPU_ARCH}-${PLATFORM_NAME}-${CONFIG_SUFFIX}"
+          OUTPUT="llvm+mlir+python-${{ matrix.py_version }}-${LLVM_VER}-${CPU_ARCH}-${PLATFORM_NAME}-${CONFIG_SUFFIX}"
 
-          bash build_llvm.bash -o "$OUTPUT" -p "$BUILD_PLATFORM" -a ${{ matrix.arch }} -c ${{ matrix.config }} -j 4
+          bash build_llvm.bash -v ${{ matrix.py_version }} -o "$OUTPUT" -p "$BUILD_PLATFORM" -a ${{ matrix.arch }} -c ${{ matrix.config }} -j 4
 
           mkdir -p ${{ github.sha }}
           mv *.tar.xz ${{ github.sha }}/
@@ -118,4 +119,6 @@ jobs:
           tag: "${{ steps.setup_release.outputs.tag_name }}"
           name: "${{ steps.setup_release.outputs.release_title }}"
           removeArtifacts: true
+          allowUpdates: true
+          replacesArtifacts: true
 
