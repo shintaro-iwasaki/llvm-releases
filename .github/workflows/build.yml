@@ -7,6 +7,9 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
 
@@ -17,21 +20,36 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
+        arch: [x86_64, arm64]
         config: [release, assert]
+        exclude:
+          - os: ubuntu-latest
+            arch: arm64
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Checkout submodules
-        run: |
-          git submodule update --init --recursive
+      - name: Get LLVM Hash
+        id: get-llvm-hash
+        run: echo "::set-output name=hash::$(git rev-parse @:./llvm-project)"
+
+      - name: Cache LLVM Repo
+        id: cache-llvm-repo
+        uses: actions/cache@v2
+        with:
+          path: llvm-project
+          key: ${{ runner.os }}-llvm-repo-${{ steps.get-llvm-hash.outputs.hash }}
+
+      - name: Checkout LLVM
+        if: steps.cache-llvm-repo.outputs.cache-hit != 'true'
+        run: git submodule update --init --depth 1 llvm-project
 
       - name: Compile
         run: |
           LLVM_VER="$(python3 scripts/get_llvm_version.py llvm-project/llvm/CMakeLists.txt)"
 
-          CPU_ARCH="x86_64"
+          CPU_ARCH="${{ matrix.arch }}"
 
           if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
             # internally it uses a docker to run 18.04
@@ -44,9 +62,9 @@ jobs:
 
           CONFIG_SUFFIX="${{ matrix.config }}"
 
-          OUTPUT="llvm+mlir-${LLVM_VER}-${CPU_ARCH}-${PLATFORM_NAME}-${CONFIG_SUFFIX}"
+          OUTPUT="llvm+mlir+python-${LLVM_VER}-${CPU_ARCH}-${PLATFORM_NAME}-${CONFIG_SUFFIX}"
 
-          bash build_llvm.bash -o "$OUTPUT" -p "$BUILD_PLATFORM" -c ${{ matrix.config }} -j 4
+          bash build_llvm.bash -o "$OUTPUT" -p "$BUILD_PLATFORM" -a ${{ matrix.arch }} -c ${{ matrix.config }} -j 4
 
           mkdir -p ${{ github.sha }}
           mv *.tar.xz ${{ github.sha }}/

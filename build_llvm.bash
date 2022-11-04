@@ -27,8 +27,11 @@ usage() {
   exit 1;
 }
 
-while getopts "o:p:c:j:" arg; do
+while getopts "a:o:p:c:j:" arg; do
   case "$arg" in
+    a)
+      arch="$OPTARG"
+      ;;
     o)
       install_prefix="$OPTARG"
       ;;
@@ -47,12 +50,19 @@ while getopts "o:p:c:j:" arg; do
   esac
 done
 
-if [ x"$install_prefix" == x ] || [ x"$platform" == x ] || [ x"$build_config" == x ]; then
+if [ x"$arch" == x ] || [ x"$install_prefix" == x ] || [ x"$platform" == x ] || [ x"$build_config" == x ]; then
   usage
 fi
 
+if [ x"$arch" == x"arm64" ]; then
+  ARCH="AArch64"
+else
+  ARCH="X86"
+fi
+
+
 # Set up CMake configurations
-CMAKE_CONFIGS="-DLLVM_ENABLE_PROJECTS=mlir -DLLVM_TARGETS_TO_BUILD=X86;NVPTX;AMDGPU"
+CMAKE_CONFIGS="-DLLVM_ENABLE_PROJECTS=mlir -DLLVM_TARGETS_TO_BUILD=${ARCH};NVPTX;AMDGPU -DMLIR_ENABLE_BINDINGS_PYTHON=ON"
 if [ x"$build_config" == x"release" ]; then
   CMAKE_CONFIGS="${CMAKE_CONFIGS} -DCMAKE_BUILD_TYPE=Release"
 elif [ x"$build_config" == x"assert" ]; then
@@ -71,8 +81,11 @@ mkdir -p "$BUILD_DIR"
 
 if [ x"$platform" == x"local" ]; then
   # Build LLVM locally
+
+  # install python3 deps for mlir python bindinds
+  python3 -m pip install -r "$SOURCE_DIR/llvm-project/mlir/python/requirements.txt"
   pushd "$BUILD_DIR"
-  cmake "$SOURCE_DIR/llvm-project/llvm" -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/$install_prefix" $CMAKE_CONFIGS
+  cmake "$SOURCE_DIR/llvm-project/llvm" -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/$install_prefix" -DPython3_EXECUTABLE=$(which python3) $CMAKE_CONFIGS 
   make -j${num_jobs} install
   tar -cJf "${CURRENT_DIR}/${install_prefix}.tar.xz" "$install_prefix"
   popd
