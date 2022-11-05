@@ -56,16 +56,18 @@ jobs:
             # internally it uses a docker to run 20.04
             PLATFORM_NAME="linux-gnu-ubuntu-20.04"
             BUILD_PLATFORM="docker_ubuntu_20.04"
+            JOBS=1
           else
             PLATFORM_NAME="apple-darwin"
             BUILD_PLATFORM="local"
+            JOBS=4
           fi
 
           CONFIG_SUFFIX="${{ matrix.config }}"
 
           OUTPUT="llvm+mlir+python-${{ matrix.py_version }}-${LLVM_VER}-${CPU_ARCH}-${PLATFORM_NAME}-${CONFIG_SUFFIX}"
 
-          bash build_llvm.bash -v ${{ matrix.py_version }} -o "$OUTPUT" -p "$BUILD_PLATFORM" -a ${{ matrix.arch }} -c ${{ matrix.config }} -j 4
+          bash build_llvm.bash -v ${{ matrix.py_version }} -o "$OUTPUT" -p "$BUILD_PLATFORM" -a ${{ matrix.arch }} -c ${{ matrix.config }} -j $JOBS
 
           mkdir -p ${{ github.sha }}
           mv *.tar.xz ${{ github.sha }}/

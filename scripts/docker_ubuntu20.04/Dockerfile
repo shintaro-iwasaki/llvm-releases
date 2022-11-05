@@ -8,7 +8,7 @@ ARG num_jobs
 ARG py_version
 
 # Install build dependencies of llvm.
-RUN apt update && apt install -y git build-essential wget ninja-build
+RUN apt update && apt install -y git build-essential wget ninja-build clang
 
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
   bash ~/miniconda.sh -b -p $HOME/miniconda && \
@@ -28,6 +28,8 @@ ADD llvm-project.tar.gz /tmp
 # Compile LLVM
 RUN $HOME/miniconda/envs/mlir/bin/python3 -m pip install --upgrade pip
 RUN $HOME/miniconda/envs/mlir/bin/python3 -m pip install -r /tmp/llvm-project/mlir/python/requirements.txt
+RUN $HOME/miniconda/envs/mlir/bin/python3 -m pip uninstall -y pybind11
+RUN $HOME/miniconda/envs/mlir/bin/python3 -m pip install pybind11==2.10.1
 RUN mkdir /tmp/llvm-project/build \
     && cd /tmp/llvm-project/build \
     && /tmp/cmake-3.24.0-linux-x86_64/bin/cmake \

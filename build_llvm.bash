@@ -58,6 +58,10 @@ if [ x"$py_version" == x ] || [ x"$arch" == x ] || [ x"$install_prefix" == x ] |
 fi
 
 # Set up CMake configurations
+if [ x"$arch" == x"x86_64" ]; then
+  CMAKE_CONFIGS="${CMAKE_CONFIGS} \
+    -DLLVM_TARGETS_TO_BUILD=X86"
+fi
 
 CMAKE_CONFIGS="-G Ninja \
   -DLLVM_BUILD_TESTS=OFF \
@@ -75,12 +79,9 @@ CMAKE_CONFIGS="-G Ninja \
   -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
   -DLLVM_BUILD_TOOLS=ON \
   -DLLVM_INCLUDE_TOOLS=ON \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_CXX_COMPILER=clang++ \
   -DLLVM_ENABLE_PROJECTS=mlir"
-
-if [ x"$arch" == x"x86_64" ]; then
-  CMAKE_CONFIGS="${CMAKE_CONFIGS} \
-    -DLLVM_TARGETS_TO_BUILD=X86"
-fi
 
 if [ x"$build_config" == x"release" ]; then
   CMAKE_CONFIGS="${CMAKE_CONFIGS} -DCMAKE_BUILD_TYPE=Release"
@@ -88,6 +89,8 @@ elif [ x"$build_config" == x"assert" ]; then
   CMAKE_CONFIGS="${CMAKE_CONFIGS} -DCMAKE_BUILD_TYPE=MinSizeRel -DLLVM_ENABLE_ASSERTIONS=True"
 elif [ x"$build_config" == x"debug" ]; then
   CMAKE_CONFIGS="${CMAKE_CONFIGS} -DCMAKE_BUILD_TYPE=Debug"
+elif [ x"$build_config" == x"relwithdeb" ]; then
+  CMAKE_CONFIGS="${CMAKE_CONFIGS} -DCMAKE_BUILD_TYPE=RelWithDebInfo"
 else
   usage
 fi
@@ -100,6 +103,55 @@ function tmpdir() {
   echo "$BUILD_DIR"
 }
 
+function sedinplace {
+    if ! sed --version 2>&1 | grep -i gnu > /dev/null; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
+IRMODULE_H="llvm-project/mlir/lib/Bindings/Python/IRModule.h"
+if [ ! -f "$IRMODULE_H" ]; then
+  echo "can't find IRModule.h in order to sed"
+  exit 1
+fi
+
+pybind_types=(
+PyAffineExpr
+PyAffineMap
+PyAttribute
+PyBlock
+PyConcreteAttribute
+PyConcreteType
+PyDiagnostic
+PyDiagnosticHandler
+PyDialect
+PyDialectDescriptor
+PyDialectRegistry
+PyDialects
+PyInsertionPoint
+PyIntegerSet
+PyLocation
+PyMlirContext
+PyModule
+PyNamedAttribute
+PyObjectRef
+PyOpView
+PyOperation
+PyRegion
+PySymbolTable
+PyThreadContextEntry
+PyType
+PyValue
+)
+
+for pybind_type in "${pybind_types[@]}"; do
+  sedinplace 's/class '"$pybind_type"' {/class PYBIND11_EXPORT '"$pybind_type"' {/g' $IRMODULE_H
+done
+
+# mkdir -p build
+# BUILD_DIR=build
 BUILD_DIR=$(tmpdir)
 export XZ_OPT='-T0 -9'
 
@@ -117,41 +169,30 @@ if [ x"$platform" == x"local" ]; then
 
   # strip this scripts args in order not to pass to sourced script
   # https://stackoverflow.com/a/33654945
-  current_args=( "$@" )
-  set -- ""
-  source $HOME/llvm_miniconda/bin/activate
-  set -- "${current_args[@]}"
 
-  conda create -n mlir -c conda-forge python="$py_version" -y
-  conda activate mlir
+  CONDA_EXE=$HOME/llvm_miniconda/bin/conda
+  $CONDA_EXE create -n mlir -c conda-forge python="$py_version" -y
+  export PATH=$HOME/llvm_miniconda/envs/mlir/bin:$PATH
 
-  if [[ ! "$CONDA_PREFIX" == *"mlir"* ]]; then
-    echo "wrong conda prefix $CONDA_PREFIX"
-    exit 1
-  fi
-  PYTHON_EXE=$CONDA_PREFIX/bin/python
-  if [[ ! "$PYTHON_EXE" == *"mlir"* ]]; then
-    echo "wrong python interpreter $PYTHON_EXE"
-    exit 1
-  fi
+  python3 -m pip install -r "$SOURCE_DIR/llvm-project/mlir/python/requirements.txt"
+  python3 -m pip uninstall -y pybind11
+  python3 -m pip install pybind11==2.10.1
+  python3 -m pip install ninja==1.10.2 cmake==3.24.0 -U --force
 
-  $PYTHON_EXE -m pip install -r "$SOURCE_DIR/llvm-project/mlir/python/requirements.txt"
-  $PYTHON_EXE -m pip install ninja cmake
-  CONDA_NINJA_EXE="$CONDA_PREFIX/bin/ninja"
-  CONDA_CMAKE_EXE="$CONDA_PREFIX/bin/cmake"
-  if [ ! -f "$CONDA_NINJA_EXE" ] || [ ! -f "$CONDA_CMAKE_EXE" ]; then
-    echo "ninja or cmake does not exist."
-    exit 1
-  fi
+  echo $(ninja --version) || exit 1
+  echo $(cmake --version) || exit 1
 
   pushd "$BUILD_DIR"
 
-  CMAKE_CONFIGS="${CMAKE_CONFIGS} \
-    -DCMAKE_MAKE_PROGRAM=$CONDA_NINJA_EXE \
+  CMAKE_CONFIGS="\
+    ${CMAKE_CONFIGS} \
+    -DCMAKE_MAKE_PROGRAM=$(which ninja)
     -DCMAKE_INSTALL_PREFIX=$BUILD_DIR/$install_prefix \
-    -DPython3_EXECUTABLE=$PYTHON_EXE"
+    -DPython3_EXECUTABLE=$(which python3)"
 
   if [ x"$arch" == x"arm64" ]; then
+    # mkdir -p tblgen_build
+    # TABGEN_BUILDIR=tblgen_build
     TABGEN_BUILDIR=$(tmpdir)
     pushd "$TABGEN_BUILDIR"
 
@@ -163,23 +204,21 @@ if [ x"$platform" == x"local" ]; then
 
     # compile the various gen things for local host arch first (in order to use in the actual td generation in the next step)
     # TODO LLVM_USE_HOST_TOOLS???
-    $CONDA_CMAKE_EXE "$SOURCE_DIR/llvm-project/llvm" \
+    cmake "$SOURCE_DIR/llvm-project/llvm" \
       $CMAKE_CONFIGS \
       -DCMAKE_BUILD_TYPE=Release
 
-    $CONDA_NINJA_EXE llvm-tblgen mlir-tblgen mlir-linalg-ods-yaml-gen mlir-pdll
+    ninja llvm-tblgen mlir-tblgen mlir-linalg-ods-yaml-gen mlir-pdll
 
     # check for bad arch (fail fast)
-    $TABGEN_BUILDIR/bin/llvm-tblgen
+    echo $($TABGEN_BUILDIR/bin/llvm-tblgen -version) || exit 1
 
     popd
 
-    $CONDA_CMAKE_EXE "$SOURCE_DIR/llvm-project/llvm" \
+    cmake "$SOURCE_DIR/llvm-project/llvm" \
       $CMAKE_CONFIGS \
       -DCMAKE_CROSSCOMPILING=True \
       -DCMAKE_OSX_ARCHITECTURES=arm64 \
-      -DCMAKE_C_COMPILER=clang \
-      -DCMAKE_CXX_COMPILER=clang++ \
       -DCMAKE_CXX_FLAGS='-target arm64-apple-macos -mcpu=apple-m1' \
       -DCMAKE_C_FLAGS='-target arm64-apple-macos -mcpu=apple-m1' \
       -DCMAKE_EXE_LINKER_FLAGS='-arch arm64' \
@@ -190,11 +229,11 @@ if [ x"$platform" == x"local" ]; then
 
   else
 
-    $CONDA_CMAKE_EXE "$SOURCE_DIR/llvm-project/llvm" $CMAKE_CONFIGS
+    cmake "$SOURCE_DIR/llvm-project/llvm" $CMAKE_CONFIGS
 
   fi
 
-  $CONDA_NINJA_EXE install
+  ninja install
   tar -cJf "${CURRENT_DIR}/${install_prefix}.tar.xz" "$install_prefix"
   popd
 
@@ -234,6 +273,6 @@ else
 fi
 
 # Remove the temporary directory
-rm -rf "$BUILD_DIR"
+#rm -rf "$BUILD_DIR"
 
 echo "Completed!"
