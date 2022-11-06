@@ -111,45 +111,6 @@ function sedinplace {
     fi
 }
 
-IRMODULE_H="llvm-project/mlir/lib/Bindings/Python/IRModule.h"
-if [ ! -f "$IRMODULE_H" ]; then
-  echo "can't find IRModule.h in order to sed"
-  exit 1
-fi
-
-pybind_types=(
-PyAffineExpr
-PyAffineMap
-PyAttribute
-PyBlock
-PyConcreteAttribute
-PyConcreteType
-PyDiagnostic
-PyDiagnosticHandler
-PyDialect
-PyDialectDescriptor
-PyDialectRegistry
-PyDialects
-PyInsertionPoint
-PyIntegerSet
-PyLocation
-PyMlirContext
-PyModule
-PyNamedAttribute
-PyObjectRef
-PyOpView
-PyOperation
-PyRegion
-PySymbolTable
-PyThreadContextEntry
-PyType
-PyValue
-)
-
-for pybind_type in "${pybind_types[@]}"; do
-  sedinplace 's/class '"$pybind_type"' {/class PYBIND11_EXPORT '"$pybind_type"' {/g' $IRMODULE_H
-done
-
 # mkdir -p build
 # BUILD_DIR=build
 BUILD_DIR=$(tmpdir)

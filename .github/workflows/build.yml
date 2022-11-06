@@ -21,8 +21,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         arch: [x86_64, arm64]
-        config: [release, assert]
-        py_version: [3.11]
+        config: [release]
+        py_version: ["3.9", "3.10", "3.11"]
         exclude:
           - os: ubuntu-latest
             arch: arm64
