@@ -195,6 +195,7 @@ if [ x"$platform" == x"local" ]; then
   fi
 
   ninja install
+  cp bin/mlir-tblgen $install_prefix/bin/mlir-tblgen
   tar -cJf "${CURRENT_DIR}/${install_prefix}.tar.xz" "$install_prefix"
   popd
 
