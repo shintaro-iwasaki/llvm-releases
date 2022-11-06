@@ -13,7 +13,8 @@ cd <this-repository>
 # 1. Update llvm-project
 git submodule update --init --depth 1 llvm-project
 pushd llvm-project
-git checkout <new-llvm-commit-id>
+git fetch --all --tags
+git checkout tags/<llvmorg-15.0.4>
 popd ../
 
 # 2. Update build scripts (if needed)
