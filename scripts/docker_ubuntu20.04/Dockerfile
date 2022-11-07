@@ -40,4 +40,3 @@ RUN cd /tmp/llvm-project/build && ninja install && cp bin/mlir-tblgen /tmp/${ins
 
 # Create a tarball
 ENV XZ_OPT='-T0 -9'
-RUN cd /tmp && tar -cJf "${install_dir_name}.tar.xz" "${install_dir_name}"

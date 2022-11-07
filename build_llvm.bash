@@ -197,7 +197,7 @@ if [ x"$platform" == x"local" ]; then
 
   ninja install
   cp bin/mlir-tblgen $install_prefix/bin/mlir-tblgen
-  tar -cJf "${CURRENT_DIR}/${install_prefix}.tar.xz" "$install_prefix"
+  cp -R -L "$install_prefix" "${CURRENT_DIR}/${install_prefix}"
   popd
 
 elif [ x"$platform" == x"docker_ubuntu_20.04" ]; then
@@ -228,7 +228,7 @@ elif [ x"$platform" == x"docker_ubuntu_20.04" ]; then
   # We cannot directly copy a file from a Docker image, so first
   # create a Docker container, copy the tarball, and remove the container.
   DOCKER_ID="$(docker create $DOCKER_REPOSITORY:$DOCKER_TAG)"
-  docker cp "$DOCKER_ID:/tmp/${install_prefix}.tar.xz" "${CURRENT_DIR}/"
+  docker cp -L "$DOCKER_ID:/tmp/${install_prefix}" "${CURRENT_DIR}/"
   docker rm "$DOCKER_ID"
 else
   rm -rf "$BUILD_DIR"
@@ -236,6 +236,6 @@ else
 fi
 
 # Remove the temporary directory
-#rm -rf "$BUILD_DIR"
+rm -rf "$BUILD_DIR"
 
 echo "Completed!"

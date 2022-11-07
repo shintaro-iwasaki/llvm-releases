@@ -46,6 +46,18 @@ jobs:
         if: steps.cache-llvm-repo.outputs.cache-hit != 'true'
         run: git submodule update --init --depth 1 llvm-project
 
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.py_version }}
+
+      - name: Cache LLVM
+        id: cache-llvm
+        uses: actions/cache@v2
+        with:
+          path: build/llvm
+          key: ${{ runner.os }}-llvm-build-${{ secrets.CACHE_VERSION }}-${{ steps.get-llvm-hash.outputs.hash }}
+
       - name: Compile
         run: |
           LLVM_VER="$(python3 scripts/get_llvm_version.py llvm-project/llvm/CMakeLists.txt)"
@@ -66,11 +78,18 @@ jobs:
           CONFIG_SUFFIX="${{ matrix.config }}"
 
           OUTPUT="llvm+mlir+python-${{ matrix.py_version }}-${LLVM_VER}-${CPU_ARCH}-${PLATFORM_NAME}-${CONFIG_SUFFIX}"
-
           bash build_llvm.bash -v ${{ matrix.py_version }} -o "$OUTPUT" -p "$BUILD_PLATFORM" -a ${{ matrix.arch }} -c ${{ matrix.config }} -j $JOBS
 
           mkdir -p ${{ github.sha }}
+          
+          XZ_OPT='-T0 -9' tar -cJf "${OUTPUT}.tar.xz" "$OUTPUT"
           mv *.tar.xz ${{ github.sha }}/
+          cp -L -R "$OUTPUT/python_packages/mlir_core/mlir" .
+
+      - name: Build wheel
+        run: |
+          LLVM_BUILD_DIR=$(pwd) python3 -m pip wheel .
+          mv *.whl ${{ github.sha }}/ 
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3
