@@ -36,7 +36,12 @@ RUN mkdir /tmp/llvm-project/build \
     /tmp/llvm-project/llvm $cmake_configs \
     -DCMAKE_INSTALL_PREFIX="/tmp/${install_dir_name}" \
     -DPython3_EXECUTABLE="$HOME/miniconda/envs/mlir/bin/python3"
-RUN cd /tmp/llvm-project/build && ninja install && cp bin/mlir-tblgen /tmp/${install_dir_name}/bin/mlir-tblgen
+RUN cd /tmp/llvm-project/build && \
+    ninja install && \
+    cp bin/mlir-tblgen /tmp/${install_dir_name}/bin/mlir-tblgen && \
+    cp bin/llvm-tblgen /tmp/${install_dir_name}/bin/llvm-tblgen && \
+    cp bin/mlir-linalg-ods-yaml-gen /tmp/${install_dir_name}/bin/mlir-linalg-ods-yaml-gen && \
+    cp bin/mlir-pdll /tmp/${install_dir_name}/bin/mlir-pdll
 
 # Create a tarball
 ENV XZ_OPT='-T0 -9'

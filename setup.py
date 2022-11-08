@@ -2,7 +2,7 @@
 #  See https://llvm.org/LICENSE.txt for license information.
 #  SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from setuptools import find_namespace_packages, setup
+from setuptools import find_namespace_packages, setup, Distribution
 
 packages = find_namespace_packages(
     include=[
@@ -11,9 +11,16 @@ packages = find_namespace_packages(
     ],
 )
 
+class BinaryDistribution(Distribution):
+    """Distribution which always forces a binary package with platform name"""
+
+    def has_ext_modules(foo):
+        return True
+
 setup(
     name="mlir_python_bindings",
     include_package_data=True,
     packages=packages,
     zip_safe=False,
+    distclass=BinaryDistribution
 )

@@ -46,56 +46,76 @@ jobs:
         if: steps.cache-llvm-repo.outputs.cache-hit != 'true'
         run: git submodule update --init --depth 1 llvm-project
 
+      - name: Cache Compile
+        id: cache-compile-llvm-v3
+        uses: actions/cache@v2
+        with:
+          path: llvm_install
+          key: ${{ runner.os }}-${{ matrix.arch }}-${{ matrix.py_version }}-llvm-build-${{ secrets.CACHE_VERSION }}-${{ steps.get-llvm-hash.outputs.hash }}
+
+      - name: Compile
+        if: steps.cache-compile-llvm-v3.outputs.cache-hit != 'true'
+        run: |
+          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
+            # internally it uses a docker to run 20.04
+            BUILD_PLATFORM="docker_ubuntu_20.04"
+            JOBS=1
+          else
+            BUILD_PLATFORM="local"
+            JOBS=4
+          fi
+
+          bash build_llvm.bash -v ${{ matrix.py_version }} \
+            -o llvm_install \
+            -p "$BUILD_PLATFORM" \
+            -a ${{ matrix.arch }} \
+            -c ${{ matrix.config }} \
+            -j $JOBS
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py_version }}
 
-      - name: Cache LLVM
-        id: cache-llvm
-        uses: actions/cache@v2
-        with:
-          path: build/llvm
-          key: ${{ runner.os }}-llvm-build-${{ secrets.CACHE_VERSION }}-${{ steps.get-llvm-hash.outputs.hash }}
-
-      - name: Compile
+      - name: Tar and collect release
         run: |
-          LLVM_VER="$(python3 scripts/get_llvm_version.py llvm-project/llvm/CMakeLists.txt)"
-
-          CPU_ARCH="${{ matrix.arch }}"
-
+          mkdir -p ${{ github.sha }}
           if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
-            # internally it uses a docker to run 20.04
             PLATFORM_NAME="linux-gnu-ubuntu-20.04"
-            BUILD_PLATFORM="docker_ubuntu_20.04"
-            JOBS=1
           else
             PLATFORM_NAME="apple-darwin"
-            BUILD_PLATFORM="local"
-            JOBS=4
           fi
-
-          CONFIG_SUFFIX="${{ matrix.config }}"
-
-          OUTPUT="llvm+mlir+python-${{ matrix.py_version }}-${LLVM_VER}-${CPU_ARCH}-${PLATFORM_NAME}-${CONFIG_SUFFIX}"
-          bash build_llvm.bash -v ${{ matrix.py_version }} -o "$OUTPUT" -p "$BUILD_PLATFORM" -a ${{ matrix.arch }} -c ${{ matrix.config }} -j $JOBS
-
-          mkdir -p ${{ github.sha }}
+          LLVM_VER="$(python3 scripts/get_llvm_version.py llvm-project/llvm/CMakeLists.txt)"
+          OUTPUT="llvm+mlir+python-${{ matrix.py_version }}-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}"
+          XZ_OPT='-T0 -9' tar -cJf "${OUTPUT}.tar.xz" llvm_install
           
-          XZ_OPT='-T0 -9' tar -cJf "${OUTPUT}.tar.xz" "$OUTPUT"
           mv *.tar.xz ${{ github.sha }}/
-          cp -L -R "$OUTPUT/python_packages/mlir_core/mlir" .
+          if [ x"${{ matrix.py_version }}" == x"3.11" ]; then
+            cp -L -R "llvm_install/bin/mlir-tblgen" "${{ github.sha }}/mlir-tblgen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
+            cp -L -R "llvm_install/bin/llvm-tblgen" "${{ github.sha }}/llvm-tblgen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
+            cp -L -R "llvm_install/bin/mlir-linalg-ods-yaml-gen" "${{ github.sha }}/mlir-linalg-ods-yaml-gen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
+            cp -L -R "llvm_install/bin/mlir-pdll" "${{ github.sha }}/mlir-pdll-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
+          fi
+          cp -L -R "llvm_install/python_packages/mlir_core/mlir" .
 
       - name: Build wheel
         run: |
-          LLVM_BUILD_DIR=$(pwd) python3 -m pip wheel .
-          mv *.whl ${{ github.sha }}/ 
+          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
+            PLATFORM_NAME="manylinux2014"
+          else
+            PLATFORM_NAME="macosx_12_0"
+          fi
+          cp -L -R llvm_install/python_packages/mlir_core/mlir .
+          python -m pip install wheel
+          python setup.py bdist_wheel --plat-name "${PLATFORM_NAME}_${{ matrix.arch }}"
+          mkdir -p ${{ github.sha }}/
+          mv dist/*.whl ${{ github.sha }}/
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3
         if: github.event_name == 'push'
         with:
-          if-no-files-found: error
+#          if-no-files-found: error
           name: build_artifact
           path: ${{ github.sha }}
 
@@ -110,10 +130,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Checkout submodules
-        run: |
-          git submodule update --init --recursive
-
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
@@ -123,10 +139,11 @@ jobs:
       - name: Set up a release page
         id: setup_release
         run: |
-          LLVM_VER="$(python3 scripts/get_llvm_version.py llvm-project/llvm/CMakeLists.txt)"
-          LLVM_COMMIT_ID="$(cd llvm-project && git log -n 1 --pretty=format:"%h" )"
-          tag_name="llvm-${LLVM_VER}-${LLVM_COMMIT_ID}"
-          release_title="LLVM ${LLVM_VER} (${LLVM_COMMIT_ID})"
+          FULL_LLVM_COMMIT="$(git ls-files -s llvm-project | cut -d' ' -f2)"
+          curl "https://raw.githubusercontent.com/llvm/llvm-project/$FULL_LLVM_COMMIT/llvm/CMakeLists.txt" --output CMakeLists.txt
+          LLVM_VER="$(python3 scripts/get_llvm_version.py CMakeLists.txt)"
+          tag_name="llvm-${LLVM_VER}-${FULL_LLVM_COMMIT}"
+          release_title="LLVM ${LLVM_VER} (${FULL_LLVM_COMMIT})"
           echo "LLVM ${LLVM_VER} created at $(date)" > body.md
           echo "::set-output name=tag_name::${tag_name}"
           echo "::set-output name=release_title::${release_title}"
@@ -134,7 +151,7 @@ jobs:
       - name: Upload tarballs
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "${{ github.sha }}/*.tar.xz"
+          artifacts: "${{ github.sha }}/*.tar.xz,${{ github.sha }}/*.whl,${{ github.sha }}/*.exe"
           bodyFile: body.md
           token: "${{ secrets.GITHUB_TOKEN }}"
           tag: "${{ steps.setup_release.outputs.tag_name }}"

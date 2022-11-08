@@ -74,6 +74,7 @@ CMAKE_CONFIGS="-G Ninja \
   -DLLVM_INCLUDE_EXAMPLES=OFF \
   -DLLVM_BUILD_BENCHMARKS=OFF \
   -DLLVM_INCLUDE_BENCHMARKS=OFF \
+  -DLLVM_ENABLE_TERMINFO=OFF \
   -DLLVM_ENABLE_LIBXML2=OFF \
   -DLLVM_ENABLE_ZSTD=OFF \
   -DMLIR_BUILD_MLIR_C_DYLIB=1 \
@@ -181,6 +182,7 @@ if [ x"$platform" == x"local" ]; then
       $CMAKE_CONFIGS \
       -DCMAKE_CROSSCOMPILING=True \
       -DCMAKE_OSX_ARCHITECTURES=arm64 \
+      -DMACOSX_DEPLOYMENT_TARGET="12.0" \
       -DCMAKE_CXX_FLAGS='-target arm64-apple-macos -mcpu=apple-m1' \
       -DCMAKE_C_FLAGS='-target arm64-apple-macos -mcpu=apple-m1' \
       -DCMAKE_EXE_LINKER_FLAGS='-arch arm64' \
@@ -197,6 +199,9 @@ if [ x"$platform" == x"local" ]; then
 
   ninja install
   cp bin/mlir-tblgen $install_prefix/bin/mlir-tblgen
+  cp bin/llvm-tblgen $install_prefix/bin/llvm-tblgen
+  cp bin/mlir-linalg-ods-yaml-gen $install_prefix/bin/mlir-linalg-ods-yaml-gen
+  cp bin/mlir-pdll $install_prefix/bin/mlir-pdll
   cp -R -L "$install_prefix" "${CURRENT_DIR}/${install_prefix}"
   popd
 
