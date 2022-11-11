@@ -47,14 +47,14 @@ jobs:
         run: git submodule update --init --depth 1 llvm-project
 
       - name: Cache Compile
-        id: cache-compile-llvm-v3
+        id: cache-compile-llvm-v4
         uses: actions/cache@v2
         with:
           path: llvm_install
           key: ${{ runner.os }}-${{ matrix.arch }}-${{ matrix.py_version }}-llvm-build-${{ secrets.CACHE_VERSION }}-${{ steps.get-llvm-hash.outputs.hash }}
 
       - name: Compile
-        if: steps.cache-compile-llvm-v3.outputs.cache-hit != 'true'
+        if: steps.cache-compile-llvm-v4.outputs.cache-hit != 'true'
         run: |
           if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
             # internally it uses a docker to run 20.04
