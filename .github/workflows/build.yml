@@ -47,35 +47,32 @@ jobs:
         run: git submodule update --init --depth 1 llvm-project
 
       - name: Cache Compile
-        id: cache-compile-llvm-v4
+        id: cache-compile-llvm-v6
         uses: actions/cache@v2
         with:
           path: llvm_install
-          key: ${{ runner.os }}-${{ matrix.arch }}-${{ matrix.py_version }}-llvm-build-${{ secrets.CACHE_VERSION }}-${{ steps.get-llvm-hash.outputs.hash }}
-
-      - name: Compile
-        if: steps.cache-compile-llvm-v4.outputs.cache-hit != 'true'
-        run: |
-          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
-            # internally it uses a docker to run 20.04
-            BUILD_PLATFORM="docker_ubuntu_20.04"
-            JOBS=1
-          else
-            BUILD_PLATFORM="local"
-            JOBS=4
-          fi
-
-          bash build_llvm.bash -v ${{ matrix.py_version }} \
-            -o llvm_install \
-            -p "$BUILD_PLATFORM" \
-            -a ${{ matrix.arch }} \
-            -c ${{ matrix.config }} \
-            -j $JOBS
+          key: ${{ runner.os }}-${{ matrix.arch }}-${{ matrix.py_version }}-${{ matrix.config }}-llvm-v6-build-${{ secrets.CACHE_VERSION }}-${{ steps.get-llvm-hash.outputs.hash }}
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py_version }}
+
+      - name: Compile
+        if: steps.cache-compile-llvm-v6.outputs.cache-hit != 'true'
+        run: |
+          rm -rf llvm-project/clang llvm-project/libcxx llvm-project/compiler-rt llvm-project/clang-tools-extra
+          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
+            sudo apt update && sudo apt install -y git build-essential wget clang
+          fi
+
+          bash build_llvm.bash \
+            -v ${{ matrix.py_version }} \
+            -o llvm_install \
+            -a ${{ matrix.arch }} \
+            -c ${{ matrix.config }} \
+            -j 4 \
+            -p ${{ matrix.os }}
 
       - name: Tar and collect release
         run: |
@@ -90,7 +87,7 @@ jobs:
           XZ_OPT='-T0 -9' tar -cJf "${OUTPUT}.tar.xz" llvm_install
           
           mv *.tar.xz ${{ github.sha }}/
-          if [ x"${{ matrix.py_version }}" == x"3.11" ]; then
+          if [ x"${{ matrix.py_version }}" == x"3.11" ] && [ x"${{ matrix.config }}" == x"release" ]; then
             cp -L -R "llvm_install/bin/mlir-tblgen" "${{ github.sha }}/mlir-tblgen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
             cp -L -R "llvm_install/bin/llvm-tblgen" "${{ github.sha }}/llvm-tblgen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
             cp -L -R "llvm_install/bin/mlir-linalg-ods-yaml-gen" "${{ github.sha }}/mlir-linalg-ods-yaml-gen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
@@ -99,6 +96,7 @@ jobs:
           cp -L -R "llvm_install/python_packages/mlir_core/mlir" .
 
       - name: Build wheel
+        if: matrix.config == 'release'
         run: |
           if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
             PLATFORM_NAME="manylinux2014"
@@ -115,7 +113,6 @@ jobs:
         uses: actions/upload-artifact@v3
         if: github.event_name == 'push'
         with:
-#          if-no-files-found: error
           name: build_artifact
           path: ${{ github.sha }}
 
