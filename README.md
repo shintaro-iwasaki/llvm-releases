@@ -31,5 +31,5 @@ Then, create a PR to the main branch of this repository. When a PR is merged, cr
 You can test run the build like this 
 
 ```sh
-bash build_llvm.bash -v 3.11 -o here -p local -a arm64 -c release -j 4
+bash build_llvm.bash -v 3.11 -o llvm_install -p ubuntu-latest -a arm64 -c release -j 16
 ```
