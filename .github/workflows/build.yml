@@ -23,9 +23,6 @@ jobs:
         arch: [x86_64, arm64]
         config: [release]
         py_version: ["3.9", "3.10", "3.11"]
-        exclude:
-          - os: ubuntu-latest
-            arch: arm64
 
     steps:
       - name: Checkout
@@ -63,7 +60,7 @@ jobs:
         run: |
           rm -rf llvm-project/clang llvm-project/libcxx llvm-project/compiler-rt llvm-project/clang-tools-extra
           if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
-            sudo apt update && sudo apt install -y git build-essential wget clang
+            sudo apt update && sudo apt install -y git build-essential wget clang python3-is-python
           fi
 
           bash build_llvm.bash \
