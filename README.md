@@ -31,5 +31,7 @@ Then, create a PR to the main branch of this repository. When a PR is merged, cr
 You can test run the build like this 
 
 ```sh
-bash build_llvm.bash -v 3.11 -o llvm_install -p ubuntu-latest -a arm64 -c release -j 16
+bash build_llvm.sh -v 3.11 -p ubuntu-latest -a arm64 -c release -j 12
 ```
+
+Note, if you're doing this locally, then it will build against which version of Python you have activated.

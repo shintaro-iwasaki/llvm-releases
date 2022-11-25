@@ -23,9 +23,6 @@ jobs:
         arch: [x86_64, arm64]
         config: [release]
         py_version: ["3.9", "3.10", "3.11"]
-        exclude:
-          - os: ubuntu-latest
-            arch: arm64
 
     steps:
       - name: Checkout
@@ -47,11 +44,11 @@ jobs:
         run: git submodule update --init --depth 1 llvm-project
 
       - name: Cache Compile
-        id: cache-compile-llvm-v6
+        id: cache-compile-llvm-v8
         uses: actions/cache@v2
         with:
           path: llvm_install
-          key: ${{ runner.os }}-${{ matrix.arch }}-${{ matrix.py_version }}-${{ matrix.config }}-llvm-v6-build-${{ secrets.CACHE_VERSION }}-${{ steps.get-llvm-hash.outputs.hash }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-${{ matrix.py_version }}-${{ matrix.config }}-llvm-v8-build-${{ secrets.CACHE_VERSION }}-${{ steps.get-llvm-hash.outputs.hash }}
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -59,16 +56,15 @@ jobs:
           python-version: ${{ matrix.py_version }}
 
       - name: Compile
-        if: steps.cache-compile-llvm-v6.outputs.cache-hit != 'true'
+        if: steps.cache-compile-llvm-v8.outputs.cache-hit != 'true'
         run: |
           rm -rf llvm-project/clang llvm-project/libcxx llvm-project/compiler-rt llvm-project/clang-tools-extra
           if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
             sudo apt update && sudo apt install -y git build-essential wget clang
           fi
 
-          bash build_llvm.bash \
+          bash build_llvm.sh \
             -v ${{ matrix.py_version }} \
-            -o llvm_install \
             -a ${{ matrix.arch }} \
             -c ${{ matrix.config }} \
             -j 4 \
@@ -95,19 +91,19 @@ jobs:
           fi
           cp -L -R "llvm_install/python_packages/mlir_core/mlir" .
 
-      - name: Build wheel
-        if: matrix.config == 'release'
-        run: |
-          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
-            PLATFORM_NAME="manylinux2014"
-          else
-            PLATFORM_NAME="macosx_12_0"
-          fi
-          cp -L -R llvm_install/python_packages/mlir_core/mlir .
-          python -m pip install wheel
-          python setup.py bdist_wheel --plat-name "${PLATFORM_NAME}_${{ matrix.arch }}"
-          mkdir -p ${{ github.sha }}/
-          mv dist/*.whl ${{ github.sha }}/
+#      - name: Build wheel
+#        if: matrix.config == 'release'
+#        run: |
+#          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
+#            PLATFORM_NAME="manylinux2014"
+#          else
+#            PLATFORM_NAME="macosx_12_0"
+#          fi
+#          cp -L -R llvm_install/python_packages/mlir_core/mlir .
+#          python -m pip install wheel
+#          python setup.py bdist_wheel --plat-name "${PLATFORM_NAME}_${{ matrix.arch }}"
+#          mkdir -p ${{ github.sha }}/
+#          mv dist/*.whl ${{ github.sha }}/
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3
