@@ -16,8 +16,9 @@ jobs:
   build:
     
     runs-on: ${{ matrix.os }}
-
+    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
         arch: [x86_64, arm64]
@@ -26,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Get LLVM Hash
         id: get-llvm-hash
@@ -34,7 +35,7 @@ jobs:
 
       - name: Cache LLVM Repo
         id: cache-llvm-repo
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: llvm-project
           key: ${{ runner.os }}-llvm-repo-${{ steps.get-llvm-hash.outputs.hash }}
@@ -45,7 +46,7 @@ jobs:
 
       - name: Cache Compile
         id: cache-compile-llvm-v8
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: llvm_install
           key: ${{ runner.os }}-${{ matrix.arch }}-${{ matrix.py_version }}-${{ matrix.config }}-llvm-v8-build-${{ secrets.CACHE_VERSION }}-${{ steps.get-llvm-hash.outputs.hash }}
@@ -121,7 +122,7 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Download artifacts
         uses: actions/download-artifact@v3
