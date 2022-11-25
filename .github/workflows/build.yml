@@ -73,7 +73,6 @@ jobs:
 
       - name: Tar and collect release
         run: |
-          mkdir -p ${{ github.sha }}
           if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
             PLATFORM_NAME="linux-gnu-ubuntu-20.04"
           else
@@ -83,28 +82,30 @@ jobs:
           OUTPUT="llvm+mlir+python-${{ matrix.py_version }}-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}"
           XZ_OPT='-T0 -9' tar -cJf "${OUTPUT}.tar.xz" llvm_install
           
+          mkdir -p ${{ github.sha }}/
           mv *.tar.xz ${{ github.sha }}/
           if [ x"${{ matrix.py_version }}" == x"3.11" ] && [ x"${{ matrix.config }}" == x"release" ]; then
-            cp -L -R "llvm_install/bin/mlir-tblgen" "${{ github.sha }}/mlir-tblgen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
-            cp -L -R "llvm_install/bin/llvm-tblgen" "${{ github.sha }}/llvm-tblgen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
-            cp -L -R "llvm_install/bin/mlir-linalg-ods-yaml-gen" "${{ github.sha }}/mlir-linalg-ods-yaml-gen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
-            cp -L -R "llvm_install/bin/mlir-pdll" "${{ github.sha }}/mlir-pdll-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
+            cp -L "llvm_install/bin/mlir-tblgen" "${{ github.sha }}/mlir-tblgen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
+            cp -L "llvm_install/bin/llvm-tblgen" "${{ github.sha }}/llvm-tblgen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
+            cp -L "llvm_install/bin/mlir-linalg-ods-yaml-gen" "${{ github.sha }}/mlir-linalg-ods-yaml-gen-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
+            cp -L "llvm_install/bin/mlir-pdll" "${{ github.sha }}/mlir-pdll-${LLVM_VER}-${{ matrix.arch }}-${PLATFORM_NAME}-${{ matrix.config }}.exe"
           fi
-          cp -L -R "llvm_install/python_packages/mlir_core/mlir" .
 
-#      - name: Build wheel
-#        if: matrix.config == 'release'
-#        run: |
-#          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
-#            PLATFORM_NAME="manylinux2014"
-#          else
-#            PLATFORM_NAME="macosx_12_0"
-#          fi
-#          cp -L -R llvm_install/python_packages/mlir_core/mlir .
-#          python -m pip install wheel
-#          python setup.py bdist_wheel --plat-name "${PLATFORM_NAME}_${{ matrix.arch }}"
-#          mkdir -p ${{ github.sha }}/
-#          mv dist/*.whl ${{ github.sha }}/
+      - name: Build wheel
+        if: matrix.config == 'release'
+        run: |
+          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
+            PLATFORM_NAME="manylinux2014"
+            R=r
+          else
+            PLATFORM_NAME="macosx_12_0"
+            R=R
+          fi
+          python -m pip install wheel
+          cp -L -$R llvm_install/python_packages/mlir_core/mlir .
+          
+          mkdir -p ${{ github.sha }}/
+          python setup.py bdist_wheel --plat-name "${PLATFORM_NAME}_${{ matrix.arch }}" --dist-dir ${{ github.sha }}
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3

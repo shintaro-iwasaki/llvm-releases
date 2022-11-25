@@ -156,6 +156,12 @@ else
   popd
 fi
 
-cp -L -R $BUILD_DIR/LLVM_INSTALL/* $LLVM_INSTALL
+if [ x"$PLATFORM" == x"ubuntu-latest" ]; then
+  R=r
+else
+  R=R
+fi
+
+cp -L -$R $BUILD_DIR/LLVM_INSTALL/* $LLVM_INSTALL
 
 echo "Completed!"
