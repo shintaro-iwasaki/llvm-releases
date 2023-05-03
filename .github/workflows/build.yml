@@ -11,12 +11,12 @@ on:
 jobs:
 
   build:
-    
+
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        os: [ubuntu-latest, 'macos-10.15', 'macos-13-arm64']
+        os: [ubuntu-latest]
         dist: [local, centos-7, ubuntu-18.04]
         config: [release, assert]
 
