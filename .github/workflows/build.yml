@@ -18,7 +18,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         dist: [local, centos-7, ubuntu-18.04]
-        config: [release, assert]
+        config: [release, assert, assert_shared]
 
         exclude:
           - os: macos-10.15

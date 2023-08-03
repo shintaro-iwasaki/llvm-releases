@@ -23,13 +23,13 @@ usage() {
   echo "Ex: bash build_llvm.sh -o llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04 -p docker_ubuntu_18.04 -c assert -j 16"
   echo "INSTALL_PREFIX = <string> # \${INSTALL_PREFIX}.tar.xz is created"
   echo "PLATFORM       = {local|docker_ubuntu_18.04|docker_centos7}"
-  echo "CONFIG         = {release|assert|debug}"
+  echo "CONFIG         = {release|assert|debug|assert_shared}"
   echo "ARCH           = {x86|arm64}"
   echo "NUM_JOBS       = {1|2|3|...}"
   exit 1;
 }
 
-while getopts "o:p:c:a:j:" arg; do
+while getopts "o:p:c:a:j:s:" arg; do
   case "$arg" in
     o)
       install_prefix="$OPTARG"
@@ -68,6 +68,8 @@ if [ x"$build_config" == x"release" ]; then
   CMAKE_CONFIGS="${CMAKE_CONFIGS} -DCMAKE_BUILD_TYPE=Release"
 elif [ x"$build_config" == x"assert" ]; then
   CMAKE_CONFIGS="${CMAKE_CONFIGS} -DCMAKE_BUILD_TYPE=MinSizeRel -DLLVM_ENABLE_ASSERTIONS=True"
+elif [ x"$build_config" == x"assert_shared" ]; then
+  CMAKE_CONFIGS="${CMAKE_CONFIGS} -DCMAKE_BUILD_TYPE=MinSizeRel -DLLVM_ENABLE_ASSERTIONS=True -DLLVM_BUILD_LLVM_DYLIB=1"
 elif [ x"$build_config" == x"debug" ]; then
   CMAKE_CONFIGS="${CMAKE_CONFIGS} -DCMAKE_BUILD_TYPE=Debug"
 else
